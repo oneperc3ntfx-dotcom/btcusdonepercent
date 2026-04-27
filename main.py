@@ -60,7 +60,7 @@ async def loop(app):
 
         next_run = now.replace(minute=30, second=0, microsecond=0)
         if now.minute >= 30:
-            next_run = (now + timedelta(hours=1)).replace(minute=30, second=0)
+            next_run = (now + timedelta(hours=1)).replace(minute=30, second=0, microsecond=0)
 
         await asyncio.sleep((next_run - now).total_seconds())
 
@@ -73,22 +73,14 @@ async def loop(app):
             text=signal(price)
         )
 
-# ================= MANUAL SIGNAL =================
+# ================= MANUAL SIGNAL (/signal) =================
 async def send_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    user_id = update.effective_user.id
-
-    # optional: lock only you
-    if user_id != CHAT_ID:
-        return await update.message.reply_text("❌ Tidak diizinkan")
 
     price = get_price()
     if not price:
         return await update.message.reply_text("❌ Gagal ambil harga")
 
-    msg = signal(price)
-
-    await update.message.reply_text(msg)
+    await update.message.reply_text(signal(price))
 
 # ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
