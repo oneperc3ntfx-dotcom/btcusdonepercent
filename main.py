@@ -21,6 +21,8 @@ CHAT_ID = os.getenv("CHAT_ID")
 if not BOT_TOKEN or not CHAT_ID:
     raise ValueError("BOT_TOKEN or CHAT_ID missing")
 
+CHAT_ID = int(CHAT_ID)
+
 # =========================
 # CONFIG
 # =========================
@@ -28,15 +30,13 @@ if not BOT_TOKEN or not CHAT_ID:
 SYMBOL = "BTCUSDT"
 TZ = pytz.timezone("Asia/Jakarta")
 
-PIP = 1  # BTC scaling
-
 # =========================
-# PRICE SOURCE (BINANCE)
+# PRICE (BINANCE)
 # =========================
 
 def get_price():
     try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={SYMBOL}"
+        url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
         res = requests.get(url, timeout=10)
         return float(res.json()["price"])
     except Exception as e:
@@ -52,13 +52,13 @@ def generate_signal(price: float):
     direction = random.choice(["BUY", "SELL"])
 
     if direction == "BUY":
-        tp1 = price + 100 * PIP
-        tp2 = price + 150 * PIP
-        sl  = price - 50 * PIP
+        tp1 = price + 100
+        tp2 = price + 150
+        sl  = price - 50
     else:
-        tp1 = price - 100 * PIP
-        tp2 = price - 150 * PIP
-        sl  = price + 50 * PIP
+        tp1 = price - 100
+        tp2 = price - 150
+        sl  = price + 50
 
     now = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -76,17 +76,15 @@ def generate_signal(price: float):
 
 ━━━━━━━━━━━━━━━━━━
 
-📌 Outlook:
-BTCUSD menunjukkan volatilitas tinggi dengan peluang intraday di kedua arah.
+📌 Market Outlook:
+Hindari entry saat harga tidak sesuai dengan struktur market, 
+hindari candle agresif, dan hindari saat news high impact.
 
-⚠️ Risk Warning:
-- Hindari entry saat market tidak jelas
-- Hindari candle agresif (spike tinggi)
-- Gunakan konfirmasi tambahan sebelum entry
+⚠️ Risk Management wajib digunakan.
 """
 
 # =========================
-# SCHEDULER (:30 EVERY HOUR)
+# SCHEDULER (EVERY HOUR :30)
 # =========================
 
 async def scheduler(app):
@@ -101,7 +99,6 @@ async def scheduler(app):
             next_run = (now + timedelta(hours=1)).replace(minute=30, second=0, microsecond=0)
 
         wait = (next_run - now).total_seconds()
-
         await asyncio.sleep(wait)
 
         price = get_price()
@@ -111,10 +108,7 @@ async def scheduler(app):
         msg = generate_signal(price)
 
         try:
-            await app.bot.send_message(
-                chat_id=CHAT_ID,
-                text=msg
-            )
+            await app.bot.send_message(chat_id=CHAT_ID, text=msg)
             print("✅ Signal sent")
         except Exception as e:
             print("SEND ERROR:", e)
@@ -124,13 +118,12 @@ async def scheduler(app):
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 BTCUSD Signal Bot Active (24/7 :30 scheduler)")
+    await update.message.reply_text("🤖 BTCUSD Bot Active (Every hour :30)")
 
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     price = get_price()
     if not price:
-        return await update.message.reply_text("No price available")
+        return await update.message.reply_text("No price")
 
     await update.message.reply_text(generate_signal(price))
 
@@ -140,14 +133,13 @@ async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def post_init(app):
     asyncio.create_task(scheduler(app))
-    print("🚀 Scheduler started (:30 mode)")
+    print("🚀 Scheduler started")
 
 # =========================
 # MAIN
 # =========================
 
 def main():
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -155,7 +147,7 @@ def main():
 
     app.post_init = post_init
 
-    print("🤖 Bot Running...")
+    print("🤖 Bot running...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
