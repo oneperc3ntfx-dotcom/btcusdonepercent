@@ -29,8 +29,9 @@ def get_price():
         return None
 
 # ================= SIGNAL =================
+import random
+
 def signal(price):
-    import random
     side = random.choice(["BUY", "SELL"])
 
     tp1 = price + 100 if side == "BUY" else price - 100
@@ -43,16 +44,16 @@ def signal(price):
 📊 BTCUSDT SIGNAL
 
 🕒 {now}
-💰 {price}
+💰 Price: {price}
 
-📈 {side}
+📈 Direction: {side}
 
-🎯 TP1 {tp1:.2f}
-🎯 TP2 {tp2:.2f}
-⛔ SL  {sl:.2f}
+🎯 TP1: {tp1:.2f}
+🎯 TP2: {tp2:.2f}
+⛔ SL : {sl:.2f}
 """
 
-# ================= LOOP :30 =================
+# ================= AUTO LOOP =================
 async def loop(app):
     while True:
         now = datetime.now(TZ)
@@ -72,20 +73,45 @@ async def loop(app):
             text=signal(price)
         )
 
-# ================= COMMAND =================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 BTC Bot aktif")
+# ================= MANUAL SIGNAL =================
+async def send_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.effective_user.id
+
+    # optional: lock only you
+    if user_id != CHAT_ID:
+        return await update.message.reply_text("❌ Tidak diizinkan")
+
+    price = get_price()
+    if not price:
+        return await update.message.reply_text("❌ Gagal ambil harga")
+
+    msg = signal(price)
+
+    await update.message.reply_text(msg)
 
 # ================= START =================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 BTC Bot aktif\n\n"
+        "Command:\n"
+        "/signal = ambil signal manual"
+    )
+
+# ================= POST INIT =================
 async def post_init(app):
     asyncio.create_task(loop(app))
 
+# ================= MAIN =================
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("signal", send_signal))
+
     app.post_init = post_init
 
+    print("🤖 Bot running...")
     app.run_polling()
 
 if __name__ == "__main__":
