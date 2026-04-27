@@ -3,10 +3,12 @@ import asyncio
 import requests
 from datetime import datetime, timedelta
 import pytz
+import random
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+# ================= ENV =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -29,31 +31,42 @@ def get_price():
         return None
 
 # ================= SIGNAL =================
-import random
-
 def signal(price):
+
     side = random.choice(["BUY", "SELL"])
 
-    tp1 = price + 100 if side == "BUY" else price - 100
-    tp2 = price + 150 if side == "BUY" else price - 150
-    sl  = price - 50 if side == "BUY" else price + 50
+    if side == "BUY":
+        tp1 = price + 400
+        tp2 = price + 800
+        sl  = price - 200
+    else:
+        tp1 = price - 400
+        tp2 = price - 800
+        sl  = price + 200
 
     now = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
     return f"""
 📊 BTCUSDT SIGNAL
 
-🕒 {now}
+🕒 Time: {now}
 💰 Price: {price}
 
 📈 Direction: {side}
 
-🎯 TP1: {tp1:.2f}
-🎯 TP2: {tp2:.2f}
-⛔ SL : {sl:.2f}
+🎯 TP1: {tp1:.2f} (400 pips)
+🎯 TP2: {tp2:.2f} (800 pips)
+⛔ SL : {sl:.2f} (200 pips)
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ Note:
+- Hindari entry saat harga tidak sesuai dengan pasar
+- Hindari entry saat candle agresif
+- Hindari saat news high impact
 """
 
-# ================= AUTO LOOP =================
+# ================= AUTO LOOP (:30) =================
 async def loop(app):
     while True:
         now = datetime.now(TZ)
@@ -73,7 +86,9 @@ async def loop(app):
             text=signal(price)
         )
 
-# ================= MANUAL SIGNAL (/signal) =================
+        print("✅ Auto signal sent")
+
+# ================= MANUAL SIGNAL =================
 async def send_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     price = get_price()
@@ -85,14 +100,16 @@ async def send_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 BTC Bot aktif\n\n"
-        "Command:\n"
-        "/signal = ambil signal manual"
+        "🤖 BTCUSDT Signal Bot Aktif\n\n"
+        "Commands:\n"
+        "/signal - ambil signal manual\n\n"
+        "Auto signal tiap jam menit 30"
     )
 
 # ================= POST INIT =================
 async def post_init(app):
     asyncio.create_task(loop(app))
+    print("🚀 Scheduler started")
 
 # ================= MAIN =================
 def main():
@@ -103,8 +120,8 @@ def main():
 
     app.post_init = post_init
 
-    print("🤖 Bot running...")
-    app.run_polling()
+    print("🤖 Bot Running...")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
