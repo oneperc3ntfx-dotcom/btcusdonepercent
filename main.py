@@ -12,14 +12,17 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # =========================
-# ENV
+# ENV SAFE LOAD
 # =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-if not BOT_TOKEN or not CHAT_ID:
-    raise ValueError("BOT_TOKEN or CHAT_ID missing")
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN missing")
+
+if not CHAT_ID:
+    raise ValueError("❌ CHAT_ID missing")
 
 CHAT_ID = int(CHAT_ID)
 
@@ -27,7 +30,6 @@ CHAT_ID = int(CHAT_ID)
 # CONFIG
 # =========================
 
-SYMBOL = "BTCUSDT"
 TZ = pytz.timezone("Asia/Jakarta")
 
 # =========================
@@ -77,50 +79,56 @@ def generate_signal(price: float):
 ━━━━━━━━━━━━━━━━━━
 
 📌 Market Outlook:
-Hindari entry saat harga tidak sesuai dengan struktur market, 
-hindari candle agresif, dan hindari saat news high impact.
+Hindari entry saat harga tidak sesuai market structure,
+hindari candle agresif, dan hindari news high impact.
 
 ⚠️ Risk Management wajib digunakan.
 """
 
 # =========================
-# SCHEDULER (EVERY HOUR :30)
+# SCHEDULER (:30 EVERY HOUR)
 # =========================
 
 async def scheduler(app):
 
     while True:
-
-        now = datetime.now(TZ)
-
-        next_run = now.replace(minute=30, second=0, microsecond=0)
-
-        if now.minute >= 30:
-            next_run = (now + timedelta(hours=1)).replace(minute=30, second=0, microsecond=0)
-
-        wait = (next_run - now).total_seconds()
-        await asyncio.sleep(wait)
-
-        price = get_price()
-        if not price:
-            continue
-
-        msg = generate_signal(price)
-
         try:
+            now = datetime.now(TZ)
+
+            next_run = now.replace(minute=30, second=0, microsecond=0)
+
+            if now.minute >= 30:
+                next_run = (now + timedelta(hours=1)).replace(minute=30, second=0, microsecond=0)
+
+            wait = (next_run - now).total_seconds()
+
+            print(f"⏳ Waiting {int(wait)} seconds for next signal")
+
+            await asyncio.sleep(wait)
+
+            price = get_price()
+            if not price:
+                continue
+
+            msg = generate_signal(price)
+
             await app.bot.send_message(chat_id=CHAT_ID, text=msg)
+
             print("✅ Signal sent")
+
         except Exception as e:
-            print("SEND ERROR:", e)
+            print("SCHEDULER ERROR:", e)
+            await asyncio.sleep(5)
 
 # =========================
 # COMMANDS
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 BTCUSD Bot Active (Every hour :30)")
+    await update.message.reply_text("🤖 BTCUSD Bot Active (24/7 :30 schedule)")
 
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     price = get_price()
     if not price:
         return await update.message.reply_text("No price")
