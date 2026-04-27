@@ -12,17 +12,17 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # =========================
-# ENV SAFE LOAD
+# ENV
 # =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 if not BOT_TOKEN:
-    raise ValueError("❌ BOT_TOKEN missing")
+    raise ValueError("BOT_TOKEN missing")
 
 if not CHAT_ID:
-    raise ValueError("❌ CHAT_ID missing")
+    raise ValueError("CHAT_ID missing")
 
 CHAT_ID = int(CHAT_ID)
 
@@ -33,20 +33,22 @@ CHAT_ID = int(CHAT_ID)
 TZ = pytz.timezone("Asia/Jakarta")
 
 # =========================
-# PRICE (BINANCE)
+# PRICE
 # =========================
 
 def get_price():
     try:
-        url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        res = requests.get(url, timeout=10)
+        res = requests.get(
+            "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            timeout=10
+        )
         return float(res.json()["price"])
     except Exception as e:
         print("PRICE ERROR:", e)
         return None
 
 # =========================
-# SIGNAL ENGINE
+# SIGNAL
 # =========================
 
 def generate_signal(price: float):
@@ -56,11 +58,11 @@ def generate_signal(price: float):
     if direction == "BUY":
         tp1 = price + 100
         tp2 = price + 150
-        sl  = price - 50
+        sl = price - 50
     else:
         tp1 = price - 100
         tp2 = price - 150
-        sl  = price + 50
+        sl = price + 50
 
     now = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -72,17 +74,15 @@ def generate_signal(price: float):
 
 📈 Direction : {direction}
 
-🎯 TP1 : {round(tp1,2)}
-🎯 TP2 : {round(tp2,2)}
-⛔ SL  : {round(sl,2)}
+🎯 TP1 : {tp1:.2f}
+🎯 TP2 : {tp2:.2f}
+⛔ SL  : {sl:.2f}
 
 ━━━━━━━━━━━━━━━━━━
 
 📌 Market Outlook:
-Hindari entry saat harga tidak sesuai market structure,
-hindari candle agresif, dan hindari news high impact.
-
-⚠️ Risk Management wajib digunakan.
+Hindari entry saat market tidak jelas,
+hindari candle agresif, hindari news high impact.
 """
 
 # =========================
@@ -102,7 +102,7 @@ async def scheduler(app):
 
             wait = (next_run - now).total_seconds()
 
-            print(f"⏳ Waiting {int(wait)} seconds for next signal")
+            print(f"⏳ Next signal in {int(wait)} seconds")
 
             await asyncio.sleep(wait)
 
@@ -125,10 +125,9 @@ async def scheduler(app):
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 BTCUSD Bot Active (24/7 :30 schedule)")
+    await update.message.reply_text("🤖 BTCUSD Bot Active 24/7 (:30 signal)")
 
 async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     price = get_price()
     if not price:
         return await update.message.reply_text("No price")
@@ -144,10 +143,11 @@ async def post_init(app):
     print("🚀 Scheduler started")
 
 # =========================
-# MAIN
+# MAIN (NO UPDATER EVER)
 # =========================
 
 def main():
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
