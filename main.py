@@ -7,9 +7,6 @@ import pytz
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# =====================
-# ENV
-# =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -18,44 +15,27 @@ if not BOT_TOKEN or not CHAT_ID:
 
 CHAT_ID = int(CHAT_ID)
 
-# =====================
-# CONFIG
-# =====================
-SYMBOL = "BTCUSDT"
 TZ = pytz.timezone("Asia/Jakarta")
 
-TP1_PIPS = 100
-TP2_PIPS = 150
-SL_PIPS  = 50
-
-# =====================
-# PRICE (BINANCE)
-# =====================
+# ================= PRICE =================
 def get_price():
     try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={SYMBOL}"
-        r = requests.get(url, timeout=10)
+        r = requests.get(
+            "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            timeout=10
+        )
         return float(r.json()["price"])
-    except Exception as e:
-        print("PRICE ERROR:", e)
+    except:
         return None
 
-# =====================
-# SIGNAL
-# =====================
-import random
+# ================= SIGNAL =================
+def signal(price):
+    import random
+    side = random.choice(["BUY", "SELL"])
 
-def generate_signal(price):
-    direction = random.choice(["BUY", "SELL"])
-
-    if direction == "BUY":
-        tp1 = price + TP1_PIPS
-        tp2 = price + TP2_PIPS
-        sl  = price - SL_PIPS
-    else:
-        tp1 = price - TP1_PIPS
-        tp2 = price - TP2_PIPS
-        sl  = price + SL_PIPS
+    tp1 = price + 100 if side == "BUY" else price - 100
+    tp2 = price + 150 if side == "BUY" else price - 150
+    sl  = price - 50 if side == "BUY" else price + 50
 
     now = datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -63,70 +43,49 @@ def generate_signal(price):
 📊 BTCUSDT SIGNAL
 
 🕒 {now}
-💰 Price: {price}
+💰 {price}
 
-📈 Direction: {direction}
+📈 {side}
 
-🎯 TP1: {tp1:.2f}
-🎯 TP2: {tp2:.2f}
-⛔ SL : {sl:.2f}
-
-━━━━━━━━━━━━━━
-⚠️ Risk Management Wajib
+🎯 TP1 {tp1:.2f}
+🎯 TP2 {tp2:.2f}
+⛔ SL  {sl:.2f}
 """
 
-# =====================
-# LOOP (EVERY :30)
-# =====================
-async def scheduler(app):
-    print("🚀 Scheduler started")
-
+# ================= LOOP :30 =================
+async def loop(app):
     while True:
         now = datetime.now(TZ)
 
         next_run = now.replace(minute=30, second=0, microsecond=0)
-
         if now.minute >= 30:
-            next_run = (now + timedelta(hours=1)).replace(minute=30, second=0, microsecond=0)
+            next_run = (now + timedelta(hours=1)).replace(minute=30, second=0)
 
-        wait = (next_run - now).total_seconds()
-        await asyncio.sleep(wait)
+        await asyncio.sleep((next_run - now).total_seconds())
 
         price = get_price()
         if not price:
             continue
 
-        msg = generate_signal(price)
+        await app.bot.send_message(
+            chat_id=CHAT_ID,
+            text=signal(price)
+        )
 
-        try:
-            await app.bot.send_message(chat_id=CHAT_ID, text=msg)
-            print("✅ Signal sent")
-        except Exception as e:
-            print("SEND ERROR:", e)
-
-# =====================
-# COMMAND
-# =====================
+# ================= COMMAND =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 BTCUSDT Bot aktif (setiap jam :30)")
+    await update.message.reply_text("🤖 BTC Bot aktif")
 
-# =====================
-# POST INIT
-# =====================
+# ================= START =================
 async def post_init(app):
-    asyncio.create_task(scheduler(app))
+    asyncio.create_task(loop(app))
 
-# =====================
-# MAIN
-# =====================
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-
     app.post_init = post_init
 
-    print("🤖 Bot running...")
     app.run_polling()
 
 if __name__ == "__main__":
