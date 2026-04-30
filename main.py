@@ -11,11 +11,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # ================= ENV =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+THREAD_ID = os.getenv("THREAD_ID")
 
-if not BOT_TOKEN or not CHAT_ID:
-    raise ValueError("BOT_TOKEN or CHAT_ID missing")
+if not BOT_TOKEN or not CHAT_ID or not THREAD_ID:
+    raise ValueError("BOT_TOKEN, CHAT_ID or THREAD_ID missing")
 
 CHAT_ID = int(CHAT_ID)
+THREAD_ID = int(THREAD_ID)
 
 TZ = pytz.timezone("Asia/Jakarta")
 
@@ -54,19 +56,23 @@ def signal(price):
 
 📈 Direction: {side}
 
-🎯 TP1: {tp1:.2f} (400 pips)
-🎯 TP2: {tp2:.2f} (800 pips)
-⛔ SL : {sl:.2f} (200 pips)
+🎯 TP1: {tp1:.2f}
+🎯 TP2: {tp2:.2f}
+⛔ SL : {sl:.2f}
 
 ━━━━━━━━━━━━━━━━━━
-
-⚠️ Note:
-- Hindari entry saat harga tidak sesuai dengan pasar
-- Hindari entry saat candle agresif
-- Hindari saat news high impact
+⚠️ High Risk Trading
 """
 
-# ================= AUTO LOOP (:30) =================
+# ================= SEND MESSAGE =================
+async def send_to_telegram(app, text):
+    await app.bot.send_message(
+        chat_id=CHAT_ID,
+        message_thread_id=THREAD_ID,
+        text=text
+    )
+
+# ================= AUTO LOOP =================
 async def loop(app):
     while True:
         now = datetime.now(TZ)
@@ -81,10 +87,7 @@ async def loop(app):
         if not price:
             continue
 
-        await app.bot.send_message(
-            chat_id=CHAT_ID,
-            text=signal(price)
-        )
+        await send_to_telegram(app, signal(price))
 
         print("✅ Auto signal sent")
 
@@ -95,15 +98,19 @@ async def send_signal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not price:
         return await update.message.reply_text("❌ Gagal ambil harga")
 
-    await update.message.reply_text(signal(price))
+    await context.bot.send_message(
+        chat_id=CHAT_ID,
+        message_thread_id=THREAD_ID,
+        text=signal(price)
+    )
 
 # ================= START =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 BTCUSDT Signal Bot Aktif\n\n"
-        "Commands:\n"
-        "/signal - ambil signal manual\n\n"
-        "Auto signal tiap jam menit 30"
+
+    await context.bot.send_message(
+        chat_id=CHAT_ID,
+        message_thread_id=THREAD_ID,
+        text="🤖 BTCUSDT Signal Bot Aktif"
     )
 
 # ================= POST INIT =================
